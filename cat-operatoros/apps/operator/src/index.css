@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   CAT OperatorOS design tokens
+   Read docs/DESIGN_SYSTEM.md before changing anything here.
+
+   Rule that governs the whole palette: COLOR MEANS STATE.
+   Green / amber / orange / red are reserved for safety state and nothing else.
+   The machine-amber accent is identity only (active nav, machine ID plate).
+   Never use accent-amber to mean "attention" — that is what state-attention is
+   for, and overloading it destroys the glance-readability of the whole UI.
+   =========================================================================== */
+
+@theme {
+  /* --- Surfaces: dark steel console, matching a cab instrument cluster --- */
+  --color-steel-900: #151a1f; /* app background */
+  --color-steel-800: #1e252c; /* card */
+  --color-steel-700: #28313a; /* raised card / pressed state */
+  --color-steel-600: #39444e; /* rules, borders, dividers */
+
+  /* --- Type --- */
+  --color-concrete-100: #e6e9ec; /* primary text */
+  --color-concrete-400: #98a4ae; /* secondary text, labels */
+  --color-concrete-600: #62707b; /* disabled, hint */
+
+  /* --- Safety state. These four are load-bearing. --- */
+  --color-state-safe: #2fa84f;
+  --color-state-attention: #e8b10c;
+  --color-state-high: #f07319;
+  --color-state-critical: #e0353b;
+
+  /* --- Identity accent. Sparingly. Never a status. --- */
+  --color-machine-amber: #ffc72c;
+
+  /* --- Type families --- */
+  --font-sans: "Barlow", system-ui, -apple-system, sans-serif;
+  --font-plate: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+
+  /* --- Type scale (px). Floor is 15px: this is read at arm's length. --- */
+  --text-label: 0.8125rem; /* 13 - labels only */
+  --text-body: 0.9375rem; /* 15 - minimum body size */
+  --text-lg: 1.125rem; /* 18 */
+  --text-xl: 1.375rem; /* 22 */
+  --text-2xl: 1.875rem; /* 30 */
+  --text-3xl: 2.75rem; /* 44 - mission readouts */
+  --text-glance: 4rem; /* 64 - glance mode only */
+
+  /* --- Tap targets. Gloved hands: 64px floor, not the usual 44. --- */
+  --spacing-tap: 4rem;
+  --spacing-nav: 5.5rem;
+}
+
+/* High-contrast mode for direct sunlight. Toggled by adding [data-contrast]
+   to <html>. Inverts to near-white so the screen fights glare instead of
+   reflecting a dark panel. State colours darken to hold contrast on white. */
+:root[data-contrast="high"] {
+  --color-steel-900: #ffffff;
+  --color-steel-800: #f1f3f5;
+  --color-steel-700: #e2e6ea;
+  --color-steel-600: #000000;
+  --color-concrete-100: #000000;
+  --color-concrete-400: #2b3238;
+  --color-concrete-600: #4a545c;
+  --color-state-safe: #17692f;
+  --color-state-attention: #8a6400;
+  --color-state-high: #a8430a;
+  --color-state-critical: #b0161b;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-steel-900);
+  color: var(--color-concrete-100);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+  /* The cab tablet is edge-to-edge; keep content clear of system bars. */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Instrument readouts use tabular figures so numbers do not jitter as
+   telemetry ticks. Apply to every live number in the UI. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* The one orchestrated motion moment in the product: a safety state change.
+   Everything else is static. Do not add hover transitions to cards. */
+@keyframes state-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 0.75rem transparent;
+    opacity: 0.85;
+  }
+}
+
+/* Runs once — "pulses once and settles", not a loop. The 100% keyframe is
+   the resting state, so it plays and simply stops there. */
+.state-pulse {
+  animation: state-pulse 1.4s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-pulse {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Keyboard focus must stay visible — judges will tab through it. */
+:focus-visible {
+  outline: 3px solid var(--color-machine-amber);
+  outline-offset: 2px;
+}
