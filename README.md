@@ -1,5 +1,12 @@
 # Smart Operator Assistant — CAT Machinery
 
+Two independent builds of the same hackathon brief live in this repo:
+
+- **This root** — a static HTML/Python prototype (below).
+- **`cat-operatoros/`** — a teammate's parallel build: React PWA + planned FastAPI/ML backend. See `cat-operatoros/README.md` for its own setup. Not yet reconciled with the root project; treat as a separate app until the team decides which becomes canonical.
+
+---
+
 Hackathon project (Caterpillar): a dashboard prototype for CAT machine operators
 covering the daily task list, safety features (seatbelt compliance, proximity
 hazards, incident logging), a training hub, and a task-time estimate.
