@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Operator Assistant — CAT Machinery</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --border: #2a2e38;
+    --text: #e8eaed; --muted: #9aa0aa;
+    --cat-yellow: #ffcd11; --danger: #ff5252; --ok: #34c759;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 24px; background: var(--panel); border-bottom: 3px solid var(--cat-yellow);
+  }
+  header .badge {
+    background: var(--cat-yellow); color: #111; font-weight: 800;
+    padding: 4px 10px; border-radius: 6px; letter-spacing: 1px;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  main { padding: 20px 24px 60px; max-width: 1300px; margin: 0 auto; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px;
+  }
+  .stat-card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .stat-card.alert .value { color: var(--danger); }
+  .stat-card.ok .value { color: var(--ok); }
+
+  section { margin-bottom: 28px; }
+  section h2 {
+    font-size: 15px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 14px;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 11px; }
+  tr:hover { background: rgba(255,255,255,0.03); }
+  .pill { padding: 2px 8px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+  .pill.yes { background: rgba(255,82,82,.15); color: var(--danger); }
+  .pill.no { background: rgba(52,199,89,.12); color: var(--ok); }
+  .pill.unfastened { background: rgba(255,82,82,.15); color: var(--danger); }
+  .pill.fastened { background: rgba(52,199,89,.12); color: var(--ok); }
+
+  .task-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .task-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #1d212b; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;
+  }
+  .task-list .tag { font-size: 11px; color: var(--muted); }
+
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .hub-card {
+    background: #1d212b; border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+  }
+  .hub-card h3 { margin: 0 0 6px; font-size: 14px; }
+  .hub-card p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+  .hub-card .cta { display: inline-block; margin-top: 10px; font-size: 12px; color: var(--cat-yellow); }
+
+  select, input[type=text] {
+    background: #1d212b; border: 1px solid var(--border); color: var(--text);
+    padding: 6px 10px; border-radius: 6px; font-size: 13px;
+  }
+  .filters { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .empty { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="badge">CAT</span>
+  <div>
+    <h1>Smart Operator Assistant</h1>
+    <div class="sub">Daily dashboard · Safety monitoring · Operator training hub</div>
+  </div>
+</header>
+
+<main>
+
+  <div class="stat-row" id="statRow"></div>
+
+  <section>
+    <h2>Daily Task Dashboard</h2>
+    <div class="panel">
+      <ul class="task-list" id="taskList"></ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Fleet Activity &amp; Safety Trends</h2>
+    <div class="grid-2">
+      <div class="panel">
+        <canvas id="idlingChart" height="220"></canvas>
+      </div>
+      <div class="panel">
+        <canvas id="alertChart" height="220"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Machine Usage Log</h2>
+    <div class="panel">
+      <div class="filters">
+        <select id="machineFilter"><option value="">All machines</option></select>
+        <select id="alertFilter">
+          <option value="">All rows</option>
+          <option value="Yes">Alerts only</option>
+        </select>
+      </div>
+      <div style="max-height: 420px; overflow:auto;">
+        <table id="logTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th><th>Machine</th><th>Type</th><th>Operator</th>
+              <th>Engine Hrs</th><th>Fuel (L)</th><th>Load Cycles</th>
+              <th>Idling (min)</th><th>Seatbelt</th><th>Proximity</th><th>Alert</th><th>Incident Logged</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Task Time Estimation</h2>
+    <div class="panel">
+      <p style="color: var(--muted); font-size: 13px; margin-top:0;">
+        Estimated completion time based on historical load-cycle averages per machine type
+        (placeholder heuristic — swap in a trained model once labeled task durations exist).
+      </p>
+      <table>
+        <thead><tr><th>Machine Type</th><th>Avg Load Cycles</th><th>Avg Idling (min)</th><th>Est. Task Time</th></tr></thead>
+        <tbody id="estimateBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Operator Training Hub</h2>
+    <div class="hub-grid">
+      <div class="hub-card">
+        <h3>▶ E-Learning: Seatbelt &amp; Cabin Safety</h3>
+        <p>5-minute video module covering seatbelt compliance and cabin safety checks before startup.</p>
+        <a class="cta" href="#">Watch module →</a>
+      </div>
+      <div class="hub-card">
+        <h3>👤 Book an Instructor</h3>
+        <p>Schedule 1:1 time with a certified CAT instructor for hands-on machine handling coaching.</p>
+        <a class="cta" href="#">Book a slot →</a>
+      </div>
+      <div class="hub-card">
+        <h3>🕹 Simulation Module</h3>
+        <p>Practice proximity-hazard response and idling reduction in a low-risk simulated job site.</p>
+        <a class="cta" href="#">Launch simulator →</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+async function loadData() {
+  const res = await fetch('data.csv');
+  const text = await res.text();
+  const [headerLine, ...lines] = text.trim().split('\n');
+  const headers = headerLine.split(',');
+  return lines.filter(Boolean).map(line => {
+    const cells = line.split(',');
+    const row = {};
+    headers.forEach((h, i) => row[h] = cells[i]);
+    return row;
+  });
+}
+
+function fmtTaskLabel(row) {
+  return `${row['Machine ID']} (${row['Machine Type']}) — Operator ${row['Operator ID']}`;
+}
+
+function render(rows) {
+  // Stat cards
+  const total = rows.length;
+  const alerts = rows.filter(r => r['Safety Alert Triggered'] === 'Yes').length;
+  const unfastened = rows.filter(r => r['Seatbelt Status'] === 'Unfastened').length;
+  const proximity = rows.filter(r => r['Proximity Alert'] === 'Yes').length;
+  const incidents = rows.filter(r => r['Incident Logged'] === 'Yes').length;
+  const avgIdle = (rows.reduce((s, r) => s + Number(r['Idling Time (min)']), 0) / total).toFixed(1);
+  const machines = [...new Set(rows.map(r => r['Machine ID']))];
+
+  document.getElementById('statRow').innerHTML = `
+    <div class="stat-card"><div class="label">Machines Tracked</div><div class="value">${machines.length}</div></div>
+    <div class="stat-card"><div class="label">Log Entries</div><div class="value">${total}</div></div>
+    <div class="stat-card alert"><div class="label">Safety Alerts</div><div class="value">${alerts}</div></div>
+    <div class="stat-card alert"><div class="label">Seatbelt Violations</div><div class="value">${unfastened}</div></div>
+    <div class="stat-card alert"><div class="label">Proximity Hazards</div><div class="value">${proximity}</div></div>
+    <div class="stat-card ok"><div class="label">Incidents Logged</div><div class="value">${incidents}</div></div>
+    <div class="stat-card ok"><div class="label">Avg Idling (min)</div><div class="value">${avgIdle}</div></div>
+  `;
+
+  // Daily task list = today's most recent reading per machine
+  const latestByMachine = {};
+  rows.forEach(r => { latestByMachine[r['Machine ID']] = r; });
+  document.getElementById('taskList').innerHTML = Object.values(latestByMachine).map(r => `
+    <li>
+      <div>
+        <div>${fmtTaskLabel(r)}</div>
+        <div class="tag">Last reading: ${r['Timestamp']}</div>
+      </div>
+      <span class="pill ${r['Safety Alert Triggered'] === 'Yes' ? 'yes' : 'no'}">
+        ${r['Safety Alert Triggered'] === 'Yes' ? 'Needs attention' : 'Nominal'}
+      </span>
+    </li>
+  `).join('');
+
+  // Machine filter options
+  const machineFilter = document.getElementById('machineFilter');
+  machines.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    machineFilter.appendChild(opt);
+  });
+
+  function renderTable() {
+    const mVal = machineFilter.value;
+    const aVal = document.getElementById('alertFilter').value;
+    const filtered = rows.filter(r =>
+      (!mVal || r['Machine ID'] === mVal) && (!aVal || r['Safety Alert Triggered'] === aVal)
+    );
+    const body = document.getElementById('logBody');
+    if (!filtered.length) {
+      body.innerHTML = `<tr><td colspan="12" class="empty">No rows match this filter.</td></tr>`;
+      return;
+    }
+    body.innerHTML = filtered.slice(-200).reverse().map(r => `
+      <tr>
+        <td>${r['Timestamp']}</td>
+        <td>${r['Machine ID']}</td>
+        <td>${r['Machine Type']}</td>
+        <td>${r['Operator ID']}</td>
+        <td>${r['Engine Hours']}</td>
+        <td>${r['Fuel Used (L)']}</td>
+        <td>${r['Load Cycles']}</td>
+        <td>${r['Idling Time (min)']}</td>
+        <td><span class="pill ${r['Seatbelt Status'].toLowerCase()}">${r['Seatbelt Status']}</span></td>
+        <td><span class="pill ${r['Proximity Alert'] === 'Yes' ? 'yes' : 'no'}">${r['Proximity Alert']}</span></td>
+        <td><span class="pill ${r['Safety Alert Triggered'].toLowerCase()}">${r['Safety Alert Triggered']}</span></td>
+        <td><span class="pill ${r['Incident Logged'] === 'Yes' ? 'yes' : 'no'}">${r['Incident Logged']}</span></td>
+      </tr>
+    `).join('');
+  }
+  machineFilter.addEventListener('change', renderTable);
+  document.getElementById('alertFilter').addEventListener('change', renderTable);
+  renderTable();
+
+  // Task time estimation table (heuristic: base 20min + cycles*2 + idling*0.3)
+  const byType = {};
+  rows.forEach(r => {
+    const t = r['Machine Type'];
+    byType[t] = byType[t] || { cycles: [], idle: [] };
+    byType[t].cycles.push(Number(r['Load Cycles']));
+    byType[t].idle.push(Number(r['Idling Time (min)']));
+  });
+  document.getElementById('estimateBody').innerHTML = Object.entries(byType).map(([type, d]) => {
+    const avgCycles = d.cycles.reduce((a,b)=>a+b,0) / d.cycles.length;
+    const avgIdle = d.idle.reduce((a,b)=>a+b,0) / d.idle.length;
+    const est = Math.round(20 + avgCycles * 2 + avgIdle * 0.3);
+    return `<tr><td>${type}</td><td>${avgCycles.toFixed(1)}</td><td>${avgIdle.toFixed(1)}</td><td>${est} min</td></tr>`;
+  }).join('');
+
+  // Charts
+  const byDate = {};
+  rows.forEach(r => {
+    const date = r['Timestamp'].split(' ')[0];
+    byDate[date] = byDate[date] || { idle: 0, count: 0, alerts: 0 };
+    byDate[date].idle += Number(r['Idling Time (min)']);
+    byDate[date].count += 1;
+    if (r['Safety Alert Triggered'] === 'Yes') byDate[date].alerts += 1;
+  });
+  const dates = Object.keys(byDate).sort();
+
+  new Chart(document.getElementById('idlingChart'), {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: 'Avg Idling Time (min)',
+        data: dates.map(d => (byDate[d].idle / byDate[d].count).toFixed(1)),
+        borderColor: '#ffcd11', backgroundColor: 'rgba(255,205,17,.15)', tension: .3, fill: true,
+      }]
+    },
+    options: { plugins: { legend: { labels: { color: '#e8eaed' } } },
+      scales: { x: { ticks: { color: '#9aa0aa' } }, y: { ticks: { color: '#9aa0aa' } } } }
+  });
+
+  new Chart(document.getElementById('alertChart'), {
+    type: 'bar',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: 'Safety Alerts',
+        data: dates.map(d => byDate[d].alerts),
+        backgroundColor: '#ff5252',
+      }]
+    },
+    options: { plugins: { legend: { labels: { color: '#e8eaed' } } },
+      scales: { x: { ticks: { color: '#9aa0aa' } }, y: { ticks: { color: '#9aa0aa' }, beginAtZero: true } } }
+  });
+}
+
+loadData().then(render).catch(err => {
+  document.querySelector('main').innerHTML =
+    `<p class="empty">Could not load data.csv — run <code>python generate_data.py</code> first, then serve this folder (e.g. <code>python -m http.server</code>).</p>`;
+  console.error(err);
+});
+</script>
+
+</body>
+</html>
