@@ -9,6 +9,13 @@ brief's "Expected outcomes," then by whether today's data already supports it.
 relies on is actually correlated in the data, not just present as a column. Two
 candidates were rejected on this basis — see the bottom of this section.
 
+**Data fix (2026-09-23):** `generate_data.py` used to pick an operator
+independently per machine per day, which left 117/360 operator-days with no
+task at all and 91 operator-days where the same operator appeared "on" two
+machines at once — both would break a per-operator daily view. Fixed to one
+`random.sample` per day assigning each operator to exactly one machine. Every
+measured number below is from the regenerated dataset.
+
 ## 1. Refuel advisor — the user's example — **needs new data columns**
 
 The idea: estimate time-to-empty from fuel level and recent burn rate, output
@@ -46,8 +53,8 @@ experience" and "beyond just a tool" goals from the brief.
 Rolling per-machine linear-regression slope of `Hydraulic Oil Temp (C)` vs. day,
 projected forward to flag when it will cross 100°C.
 
-Measured: **EXC002's hydraulic temp climbs ~1.01°C/day** and first crosses 100°C
-on **2025-05-09** (day 9 of 45) — a genuine early-warning window before the
+Measured: **EXC002's hydraulic temp climbs ~0.98°C/day** and first crosses 100°C
+on **2025-05-11** (day 11 of 45) — a genuine early-warning window before the
 `Anomaly Label = Overheating` rows start appearing. `statistics.linear_regression`
 (Python 3.10+, stdlib) is enough — no new dependency. Directly supports "identify
 unusual behavior in machine usage."
@@ -56,9 +63,10 @@ unusual behavior in machine usage."
 
 Mean idling time per operator vs. fleet mean, as a z-score or simple ratio.
 
-Measured mean idling per operator (minutes): OP1001 22.5, OP1002 23.6, **OP1003
-38.0**, OP1004 22.8, OP1005 22.4, OP1006 27.6, OP1007 25.3, OP1008 21.8. OP1003 is
-~65% above the next-highest operator — a clean, real outlier (this is the
+Measured mean idling per operator (minutes, after the one-operator-per-machine-per-day
+fix below): OP1001 24.7, OP1002 23.2, **OP1003 38.5**, OP1004 23.7, OP1005 25.0,
+OP1006 24.1, OP1007 22.2, OP1008 24.3. OP1003 is ~54% above the next-highest
+operator — a clean, real outlier (this is the
 planted `HABITUAL_IDLER`, but the point is the signal is genuinely there, not
 asserted). Output: flag the operator, recommend the idling-reduction training
 module. Directly supports "identify unusual behavior... excessive idling."
@@ -66,8 +74,8 @@ module. Directly supports "identify unusual behavior... excessive idling."
 ## 5. Task duration regression — **ready now, needs a scope decision**
 
 Measured Actual/Scheduled ratio (how much conditions actually slow tasks down):
-by Weather — Clear 1.069, Fog 1.163, Dust 1.196, Rain 1.256; by Ground — Dry
-1.056, Wet 1.177, Muddy 1.325; by Shift — Day 1.076, Night 1.223. These aren't
+by Weather — Clear 1.061, Fog 1.140, Dust 1.178, Rain 1.271; by Ground — Dry
+1.053, Wet 1.175, Muddy 1.324; by Shift — Day 1.082, Night 1.197. These aren't
 flat — conditions genuinely move duration, so there's something to fit beyond
 the group-mean baseline already in `index.html`.
 
@@ -137,6 +145,13 @@ from growing model logic. Flagged for the pick, not decided here.
 - **SHOULD**: Dashboard loads data.csv via fetch(), which needs a local server (file:// will fail on CORS) -- document `python -m http.server` in a README.
 
 ## Cycle 3 — 2026-09-23 12:49:29
+
+- **SHOULD**: Dashboard loads data.csv via fetch(), which needs a local server (file:// will fail on CORS) -- document `python -m http.server` in a README.
+
+
+# Dev review run — 2026-09-23 14:19:56
+
+## Cycle 1 — 2026-09-23 14:19:56
 
 - **SHOULD**: Dashboard loads data.csv via fetch(), which needs a local server (file:// will fail on CORS) -- document `python -m http.server` in a README.
 

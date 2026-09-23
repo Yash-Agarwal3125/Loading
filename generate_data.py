@@ -84,8 +84,10 @@ def generate_rows():
 
     for day in range(DAYS):
         date = start_date + timedelta(days=day)
+        # One operator per machine per day (an operator can't be on two machines at once).
+        day_assignment = dict(zip([m for m, _ in MACHINES], random.sample(OPERATORS, len(MACHINES))))
         for machine_id, machine_type in MACHINES:
-            operator_id = random.choice(OPERATORS)
+            operator_id = day_assignment[machine_id]
             experience, certification = operator_profile(operator_id)
 
             for hour in sorted(random.sample(SHIFT_HOURS, READINGS_PER_MACHINE_PER_DAY)):
@@ -249,6 +251,15 @@ def _self_check():
     assert all(r["Actual Duration (min)"] > 0 for r in rows)
     assert all((r["Proximity Alert"] == "Yes") == (r["Proximity Min Distance (m)"] < 3) for r in rows)
     assert all(r["Incident Logged"] == "No" or r["Safety Alert Triggered"] == "Yes" for r in rows)
+
+    # An operator's day view needs exactly one machine per operator per day.
+    by_op_day = {}
+    for r in rows:
+        key = (r["Operator ID"], r["Timestamp"][:10])
+        by_op_day.setdefault(key, set()).add(r["Machine ID"])
+    assert all(len(machines) == 1 for machines in by_op_day.values()), \
+        "an operator is assigned to more than one machine on the same day"
+
     print("self-check passed:", len(rows), "rows generated")
 
 

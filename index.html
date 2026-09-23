@@ -66,6 +66,17 @@
   }
   .task-list .tag { font-size: 11px; color: var(--muted); }
 
+  .action-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .action-list li {
+    background: #1d212b; border: 1px solid var(--border); border-left: 3px solid var(--ok);
+    border-radius: 6px; padding: 8px 12px; font-size: 13px;
+  }
+  .action-list li.warn { border-left-color: var(--danger); }
+  .action-list .time { color: var(--muted); font-size: 11px; margin-right: 6px; }
+
+  .briefing { font-size: 14px; line-height: 1.6; }
+  .briefing b { color: var(--cat-yellow); }
+
   .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
   .hub-card {
     background: #1d212b; border: 1px solid var(--border); border-radius: 10px; padding: 16px;
@@ -78,8 +89,14 @@
     background: #1d212b; border: 1px solid var(--border); color: var(--text);
     padding: 6px 10px; border-radius: 6px; font-size: 13px;
   }
-  .filters { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
   .empty { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+
+  details.supervisor { border: 1px dashed var(--border); border-radius: 10px; padding: 4px 16px 16px; margin-top: 12px; }
+  details.supervisor summary {
+    cursor: pointer; padding: 12px 0; color: var(--muted); font-size: 13px;
+    text-transform: uppercase; letter-spacing: .5px;
+  }
 </style>
 </head>
 <body>
@@ -88,71 +105,42 @@
   <span class="badge">CAT</span>
   <div>
     <h1>Smart Operator Assistant</h1>
-    <div class="sub">Daily dashboard · Safety monitoring · Operator training hub</div>
+    <div class="sub">Your day, your machine, your safety status — at a glance</div>
   </div>
 </header>
 
 <main>
 
-  <div class="stat-row" id="statRow"></div>
-
   <section>
     <h2>Daily Task Dashboard</h2>
     <div class="panel">
-      <ul class="task-list" id="taskList"></ul>
-    </div>
-  </section>
-
-  <section>
-    <h2>Fleet Activity &amp; Safety Trends</h2>
-    <div class="grid-2">
-      <div class="panel">
-        <canvas id="idlingChart" height="220"></canvas>
-      </div>
-      <div class="panel">
-        <canvas id="alertChart" height="220"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Machine Usage Log</h2>
-    <div class="panel">
       <div class="filters">
-        <select id="machineFilter"><option value="">All machines</option></select>
-        <select id="alertFilter">
-          <option value="">All rows</option>
-          <option value="Yes">Alerts only</option>
-        </select>
+        <label for="operatorSelect" style="color:var(--muted); font-size:12px;">Operator</label>
+        <select id="operatorSelect"></select>
+        <label for="dateSelect" style="color:var(--muted); font-size:12px;">Date</label>
+        <select id="dateSelect"></select>
       </div>
-      <div style="max-height: 420px; overflow:auto;">
-        <table id="logTable">
-          <thead>
-            <tr>
-              <th>Timestamp</th><th>Machine</th><th>Type</th><th>Operator</th>
-              <th>Task</th><th>Conditions</th>
-              <th>Engine Hrs</th><th>Fuel (L)</th><th>Load Cycles</th>
-              <th>Idling (min)</th><th>Seatbelt</th><th>Proximity</th><th>Alert</th><th>Anomaly</th>
-            </tr>
-          </thead>
-          <tbody id="logBody"></tbody>
-        </table>
-      </div>
+      <div class="briefing" id="briefing"></div>
     </div>
   </section>
 
   <section>
-    <h2>Task Time Estimation</h2>
+    <h2>My Tasks Today</h2>
     <div class="panel">
-      <p style="color: var(--muted); font-size: 13px; margin-top:0;">
-        Estimate = mean Actual Duration for that task type under that weather, from logged history
-        (swap for a trained regression once there's enough labeled data to beat the group mean).
-      </p>
-      <table>
-        <thead><tr><th>Task Type</th><th>Weather</th><th>Avg Scheduled (min)</th><th>Avg Actual (min)</th><th># Samples</th></tr></thead>
-        <tbody id="estimateBody"></tbody>
-      </table>
+      <ul class="task-list" id="myTaskList"></ul>
     </div>
+  </section>
+
+  <section>
+    <h2>Safety Status</h2>
+    <div class="panel">
+      <ul class="action-list" id="mySafety"></ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>My Machine</h2>
+    <div class="panel" id="myMachine"></div>
   </section>
 
   <section>
@@ -176,6 +164,64 @@
     </div>
   </section>
 
+  <details class="supervisor">
+    <summary>Supervisor / Fleet View (all machines, all operators)</summary>
+
+    <div class="stat-row" id="statRow"></div>
+
+    <section>
+      <h2>Fleet Activity &amp; Safety Trends</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <canvas id="idlingChart" height="220"></canvas>
+        </div>
+        <div class="panel">
+          <canvas id="alertChart" height="220"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Machine Usage Log</h2>
+      <div class="panel">
+        <div class="filters">
+          <select id="machineFilter"><option value="">All machines</option></select>
+          <select id="alertFilter">
+            <option value="">All rows</option>
+            <option value="Yes">Alerts only</option>
+          </select>
+        </div>
+        <div style="max-height: 420px; overflow:auto;">
+          <table id="logTable">
+            <thead>
+              <tr>
+                <th>Timestamp</th><th>Machine</th><th>Type</th><th>Operator</th>
+                <th>Task</th><th>Conditions</th>
+                <th>Engine Hrs</th><th>Fuel (L)</th><th>Load Cycles</th>
+                <th>Idling (min)</th><th>Seatbelt</th><th>Proximity</th><th>Alert</th><th>Anomaly</th>
+              </tr>
+            </thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Task Time Estimation</h2>
+      <div class="panel">
+        <p style="color: var(--muted); font-size: 13px; margin-top:0;">
+          Fleet-wide mean Actual Duration for that task type under that weather, from logged history
+          (the per-operator task cards above use the same lookup, restricted to data available before that day).
+        </p>
+        <table>
+          <thead><tr><th>Task Type</th><th>Weather</th><th>Avg Scheduled (min)</th><th>Avg Actual (min)</th><th># Samples</th></tr></thead>
+          <tbody id="estimateBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </details>
+
 </main>
 
 <script>
@@ -192,12 +238,132 @@ async function loadData() {
   });
 }
 
-function fmtTaskLabel(row) {
-  return `${row['Machine ID']} (${row['Machine Type']}) — Operator ${row['Operator ID']}`;
+// Mean Actual Duration by "Task Type|Weather", built only from rows strictly before `beforeDate`
+// (an operator's ETA can only use what's already happened, per the brief's "based on past data").
+function buildDurationLookup(rows, beforeDate) {
+  const byTaskWeather = {}, byTask = {};
+  rows.filter(r => r['Timestamp'].split(' ')[0] < beforeDate).forEach(r => {
+    const actual = Number(r['Actual Duration (min)']);
+    const twKey = `${r['Task Type']}|${r['Weather']}`;
+    (byTaskWeather[twKey] = byTaskWeather[twKey] || []).push(actual);
+    (byTask[r['Task Type']] = byTask[r['Task Type']] || []).push(actual);
+  });
+  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  return function predict(taskType, weather, scheduledFallback) {
+    const twKey = `${taskType}|${weather}`;
+    if (byTaskWeather[twKey]) return Math.round(avg(byTaskWeather[twKey]));
+    if (byTask[taskType]) return Math.round(avg(byTask[taskType]));
+    return scheduledFallback; // no history yet (e.g. day 1) -- best available guess is the plan
+  };
 }
 
-function render(rows) {
-  // Stat cards
+function addMinutes(timeStr, minutes) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const total = h * 60 + m + minutes;
+  const hh = Math.floor((total / 60) % 24).toString().padStart(2, '0');
+  const mm = (total % 60).toString().padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function renderOperatorView(rows, operatorId, date) {
+  const dayRows = rows
+    .filter(r => r['Operator ID'] === operatorId && r['Timestamp'].split(' ')[0] === date)
+    .sort((a, b) => a['Timestamp'].localeCompare(b['Timestamp']));
+
+  const briefing = document.getElementById('briefing');
+  const taskList = document.getElementById('myTaskList');
+  const safetyList = document.getElementById('mySafety');
+  const machinePanel = document.getElementById('myMachine');
+
+  if (!dayRows.length) {
+    briefing.innerHTML = `<p class="empty">No tasks logged for this operator on this date.</p>`;
+    taskList.innerHTML = '';
+    safetyList.innerHTML = '';
+    machinePanel.innerHTML = '';
+    return;
+  }
+
+  const machineId = dayRows[0]['Machine ID'];
+  const machineType = dayRows[0]['Machine Type'];
+  const shift = dayRows[0]['Shift'];
+  const weather = dayRows[0]['Weather'];
+  const ground = dayRows[0]['Ground Condition'];
+  const lastTask = dayRows[dayRows.length - 1];
+
+  briefing.innerHTML = `
+    Machine <b>${machineId}</b> (${machineType}) · <b>${shift}</b> shift ·
+    ${weather} weather, ${ground} ground · <b>${dayRows.length}</b> task${dayRows.length === 1 ? '' : 's'} today
+  `;
+
+  const predict = buildDurationLookup(rows, date);
+  taskList.innerHTML = dayRows.map(r => {
+    const startTime = r['Timestamp'].split(' ')[1].slice(0, 5);
+    const scheduled = Number(r['Scheduled Duration (min)']);
+    const predicted = predict(r['Task Type'], r['Weather'], scheduled);
+    const finish = addMinutes(startTime, predicted);
+    return `
+      <li>
+        <div>
+          <div>${startTime} — ${r['Task Type']} · ${r['Site Zone']} (${r['Material']})</div>
+          <div class="tag">Scheduled ${scheduled}min · Predicted ${predicted}min · Expected finish ${finish}</div>
+        </div>
+        <span class="pill ${r['Safety Alert Triggered'] === 'Yes' ? 'yes' : 'no'}">
+          ${r['Safety Alert Triggered'] === 'Yes' ? 'Needs attention' : 'Nominal'}
+        </span>
+      </li>
+    `;
+  }).join('');
+
+  const safetyItems = [];
+  dayRows.forEach(r => {
+    const t = r['Timestamp'].split(' ')[1].slice(0, 5);
+    if (r['Seatbelt Status'] === 'Unfastened') {
+      safetyItems.push({ warn: true, t, msg: 'Fasten seatbelt before moving the machine.' });
+    }
+    if (r['Proximity Alert'] === 'Yes') {
+      safetyItems.push({ warn: true, t, msg: `${r['Proximity Object']} within ${r['Proximity Min Distance (m)']}m — stop and check surroundings.` });
+    }
+    if (r['Incident Logged'] === 'Yes') {
+      safetyItems.push({ warn: true, t, msg: `Incident logged: ${r['Incident Type']} (${r['Incident Severity']} severity) — review before next task.` });
+    }
+    if (r['Safety Alert Triggered'] === 'Yes' && r['Seatbelt Status'] !== 'Unfastened' && r['Proximity Alert'] !== 'Yes') {
+      safetyItems.push({ warn: true, t, msg: `Safety alert triggered (${r['Idling Time (min)']}min idling) — check machine status.` });
+    }
+  });
+  safetyList.innerHTML = safetyItems.length
+    ? safetyItems.map(i => `<li class="${i.warn ? 'warn' : ''}"><span class="time">${i.t}</span>${i.msg}</li>`).join('')
+    : `<li>No seatbelt, proximity, or safety alerts today — nominal.</li>`;
+
+  const machineHistory = rows
+    .filter(r => r['Machine ID'] === machineId && r['Timestamp'].split(' ')[0] <= date)
+    .sort((a, b) => a['Timestamp'].localeCompare(b['Timestamp']));
+  const weekAgo = new Date(date);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoStr = weekAgo.toISOString().slice(0, 10);
+  const weekAgoReading = machineHistory.find(r => r['Timestamp'].split(' ')[0] === weekAgoStr);
+  const currentTemp = Number(lastTask['Hydraulic Oil Temp (C)']);
+  let tempTrend = '';
+  if (weekAgoReading) {
+    const delta = currentTemp - Number(weekAgoReading['Hydraulic Oil Temp (C)']);
+    tempTrend = delta > 2
+      ? ` <span style="color:var(--danger)">(+${delta.toFixed(1)}°C vs 7 days ago — climbing)</span>`
+      : ` (${delta >= 0 ? '+' : ''}${delta.toFixed(1)}°C vs 7 days ago)`;
+  }
+
+  machinePanel.innerHTML = `
+    <table>
+      <tbody>
+        <tr><th>Engine Hours</th><td>${lastTask['Engine Hours']}</td></tr>
+        <tr><th>Fuel Used Today</th><td>${dayRows.reduce((s, r) => s + Number(r['Fuel Used (L)']), 0).toFixed(1)} L</td></tr>
+        <tr><th>Hydraulic Oil Temp</th><td>${currentTemp.toFixed(1)}°C${tempTrend}</td></tr>
+        <tr><th>Max Tilt Today</th><td>${Math.max(...dayRows.map(r => Number(r['Max Tilt (deg)']))).toFixed(1)}°</td></tr>
+        <tr><th>Harsh Events Today</th><td>${dayRows.reduce((s, r) => s + Number(r['Harsh Event Count']), 0)}</td></tr>
+      </tbody>
+    </table>
+  `;
+}
+
+function renderSupervisorView(rows) {
   const total = rows.length;
   const alerts = rows.filter(r => r['Safety Alert Triggered'] === 'Yes').length;
   const unfastened = rows.filter(r => r['Seatbelt Status'] === 'Unfastened').length;
@@ -218,25 +384,6 @@ function render(rows) {
     <div class="stat-card ok"><div class="label">Avg Idling (min)</div><div class="value">${avgIdle}</div></div>
   `;
 
-  // Daily task list = today's most recent reading per machine
-  const latestByMachine = {};
-  rows.forEach(r => { latestByMachine[r['Machine ID']] = r; });
-  document.getElementById('taskList').innerHTML = Object.values(latestByMachine).map(r => `
-    <li>
-      <div>
-        <div>${fmtTaskLabel(r)} — ${r['Task Type']} (${r['Site Zone']})</div>
-        <div class="tag">
-          ${r['Timestamp']} · ${r['Weather']}, ${r['Ground Condition']} ground, ${r['Shift']} shift ·
-          Scheduled ${r['Scheduled Duration (min)']}min → Actual ${r['Actual Duration (min)']}min
-        </div>
-      </div>
-      <span class="pill ${r['Safety Alert Triggered'] === 'Yes' ? 'yes' : 'no'}">
-        ${r['Safety Alert Triggered'] === 'Yes' ? 'Needs attention' : 'Nominal'}
-      </span>
-    </li>
-  `).join('');
-
-  // Machine filter options
   const machineFilter = document.getElementById('machineFilter');
   machines.forEach(m => {
     const opt = document.createElement('option');
@@ -278,7 +425,6 @@ function render(rows) {
   document.getElementById('alertFilter').addEventListener('change', renderTable);
   renderTable();
 
-  // Task time estimation table: mean Actual Duration grouped by Task Type x Weather (a real target, not a guess)
   const byTaskWeather = {};
   rows.forEach(r => {
     const key = `${r['Task Type']}|${r['Weather']}`;
@@ -294,7 +440,6 @@ function render(rows) {
       return `<tr><td>${taskType}</td><td>${weather}</td><td>${avg(d.scheduled).toFixed(0)}</td><td>${avg(d.actual).toFixed(0)}</td><td>${d.actual.length}</td></tr>`;
     }).join('');
 
-  // Charts
   const byDate = {};
   rows.forEach(r => {
     const date = r['Timestamp'].split(' ')[0];
@@ -332,6 +477,26 @@ function render(rows) {
     options: { plugins: { legend: { labels: { color: '#e8eaed' } } },
       scales: { x: { ticks: { color: '#9aa0aa' } }, y: { ticks: { color: '#9aa0aa' }, beginAtZero: true } } }
   });
+}
+
+function render(rows) {
+  const operators = [...new Set(rows.map(r => r['Operator ID']))].sort();
+  const dates = [...new Set(rows.map(r => r['Timestamp'].split(' ')[0]))].sort();
+  const latestDate = dates[dates.length - 1];
+
+  const operatorSelect = document.getElementById('operatorSelect');
+  operatorSelect.innerHTML = operators.map(o => `<option value="${o}">${o}</option>`).join('');
+  operatorSelect.value = operators[0];
+  const dateSelect = document.getElementById('dateSelect');
+  dateSelect.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
+  dateSelect.value = latestDate;
+
+  const update = () => renderOperatorView(rows, operatorSelect.value, dateSelect.value);
+  operatorSelect.addEventListener('change', update);
+  dateSelect.addEventListener('change', update);
+  update();
+
+  renderSupervisorView(rows); // charts/log/fleet estimate render once -- re-running would duplicate Chart.js canvases
 }
 
 loadData().then(render).catch(err => {

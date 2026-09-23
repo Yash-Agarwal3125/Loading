@@ -73,6 +73,8 @@ def check_dashboard():
         findings.append(("MUST", "Dashboard has no incident-logging UI (form or log view)."))
     if "fetch('data.csv')" in html or 'fetch("data.csv")' in html:
         findings.append(("SHOULD", "Dashboard loads data.csv via fetch(), which needs a local server (file:// will fail on CORS) -- document `python -m http.server` in a README."))
+    if 'id="operatorSelect"' not in html:
+        findings.append(("MUST", "No operatorSelect control -- the project's north star is a per-operator daily dashboard, not a fleet view. See CLAUDE.md."))
     return findings
 
 
@@ -85,7 +87,32 @@ def check_project_hygiene():
     return findings
 
 
-CHECKS = [check_dataset, check_dashboard, check_project_hygiene]
+def _git_mtime(path):
+    """Last commit time for `path`, or None if git/the file isn't available."""
+    try:
+        import subprocess
+        out = subprocess.run(
+            ["git", "log", "-1", "--format=%ct", "--", path],
+            capture_output=True, text=True, timeout=5,
+        )
+        return int(out.stdout.strip()) if out.returncode == 0 and out.stdout.strip() else None
+    except Exception:
+        return None
+
+
+def check_docs_freshness():
+    findings = []
+    claude_md_time = _git_mtime("CLAUDE.md")
+    if claude_md_time is None:
+        return findings  # not a git repo / no history yet -- nothing to compare
+    for path in ("generate_data.py", "index.html", "dev_review_loop.py"):
+        code_time = _git_mtime(path)
+        if code_time and code_time > claude_md_time:
+            findings.append(("SHOULD", f"{path} was committed more recently than CLAUDE.md -- check CLAUDE.md still describes the current schema/architecture."))
+    return findings
+
+
+CHECKS = [check_dataset, check_dashboard, check_project_hygiene, check_docs_freshness]
 
 
 def run_cycle(cycle_num):
