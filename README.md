@@ -4,6 +4,13 @@ Hackathon project (Caterpillar): a dashboard prototype for CAT machine operators
 covering the daily task list, safety features (seatbelt compliance, proximity
 hazards, incident logging), a training hub, and a task-time estimate.
 
+The dataset goes beyond the brief's sample sheet with task/condition/operator
+fields (task type, material, weather, ground condition, shift, operator
+experience) and operational telemetry (engine load, hydraulic temp, tilt,
+speed) so that task duration and unusual-behavior detection have real signal
+to learn from, not independent random columns. See `generate_data.py` for how
+each field is derived.
+
 ## Run it
 
 ```bash
@@ -22,6 +29,7 @@ Then open http://localhost:8000
 
 ## Still open (see RECOMMENDATIONS.md for the live list)
 
-- Real proximity-hazard/incident-logging data source (currently simulated).
-- Task time estimation is a linear heuristic, not a trained model.
+- All telemetry is simulated (no real machine/IoT data source yet).
+- Task time estimation is a historical group-average, not a trained model.
+- Anomaly detection is rule-derived (thresholds), not a trained classifier — `Anomaly Label` is there as ground truth for one.
 - Training hub links are placeholders (no real video/booking backend).
