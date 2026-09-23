@@ -130,8 +130,9 @@
           <thead>
             <tr>
               <th>Timestamp</th><th>Machine</th><th>Type</th><th>Operator</th>
+              <th>Task</th><th>Conditions</th>
               <th>Engine Hrs</th><th>Fuel (L)</th><th>Load Cycles</th>
-              <th>Idling (min)</th><th>Seatbelt</th><th>Proximity</th><th>Alert</th><th>Incident Logged</th>
+              <th>Idling (min)</th><th>Seatbelt</th><th>Proximity</th><th>Alert</th><th>Anomaly</th>
             </tr>
           </thead>
           <tbody id="logBody"></tbody>
@@ -144,11 +145,11 @@
     <h2>Task Time Estimation</h2>
     <div class="panel">
       <p style="color: var(--muted); font-size: 13px; margin-top:0;">
-        Estimated completion time based on historical load-cycle averages per machine type
-        (placeholder heuristic — swap in a trained model once labeled task durations exist).
+        Estimate = mean Actual Duration for that task type under that weather, from logged history
+        (swap for a trained regression once there's enough labeled data to beat the group mean).
       </p>
       <table>
-        <thead><tr><th>Machine Type</th><th>Avg Load Cycles</th><th>Avg Idling (min)</th><th>Est. Task Time</th></tr></thead>
+        <thead><tr><th>Task Type</th><th>Weather</th><th>Avg Scheduled (min)</th><th>Avg Actual (min)</th><th># Samples</th></tr></thead>
         <tbody id="estimateBody"></tbody>
       </table>
     </div>
@@ -202,6 +203,7 @@ function render(rows) {
   const unfastened = rows.filter(r => r['Seatbelt Status'] === 'Unfastened').length;
   const proximity = rows.filter(r => r['Proximity Alert'] === 'Yes').length;
   const incidents = rows.filter(r => r['Incident Logged'] === 'Yes').length;
+  const anomalies = rows.filter(r => r['Anomaly Label'] !== 'None').length;
   const avgIdle = (rows.reduce((s, r) => s + Number(r['Idling Time (min)']), 0) / total).toFixed(1);
   const machines = [...new Set(rows.map(r => r['Machine ID']))];
 
@@ -212,6 +214,7 @@ function render(rows) {
     <div class="stat-card alert"><div class="label">Seatbelt Violations</div><div class="value">${unfastened}</div></div>
     <div class="stat-card alert"><div class="label">Proximity Hazards</div><div class="value">${proximity}</div></div>
     <div class="stat-card ok"><div class="label">Incidents Logged</div><div class="value">${incidents}</div></div>
+    <div class="stat-card alert"><div class="label">Anomalies Flagged</div><div class="value">${anomalies}</div></div>
     <div class="stat-card ok"><div class="label">Avg Idling (min)</div><div class="value">${avgIdle}</div></div>
   `;
 
@@ -221,8 +224,11 @@ function render(rows) {
   document.getElementById('taskList').innerHTML = Object.values(latestByMachine).map(r => `
     <li>
       <div>
-        <div>${fmtTaskLabel(r)}</div>
-        <div class="tag">Last reading: ${r['Timestamp']}</div>
+        <div>${fmtTaskLabel(r)} — ${r['Task Type']} (${r['Site Zone']})</div>
+        <div class="tag">
+          ${r['Timestamp']} · ${r['Weather']}, ${r['Ground Condition']} ground, ${r['Shift']} shift ·
+          Scheduled ${r['Scheduled Duration (min)']}min → Actual ${r['Actual Duration (min)']}min
+        </div>
       </div>
       <span class="pill ${r['Safety Alert Triggered'] === 'Yes' ? 'yes' : 'no'}">
         ${r['Safety Alert Triggered'] === 'Yes' ? 'Needs attention' : 'Nominal'}
@@ -246,7 +252,7 @@ function render(rows) {
     );
     const body = document.getElementById('logBody');
     if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="12" class="empty">No rows match this filter.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="14" class="empty">No rows match this filter.</td></tr>`;
       return;
     }
     body.innerHTML = filtered.slice(-200).reverse().map(r => `
@@ -255,6 +261,8 @@ function render(rows) {
         <td>${r['Machine ID']}</td>
         <td>${r['Machine Type']}</td>
         <td>${r['Operator ID']}</td>
+        <td>${r['Task Type']} · ${r['Site Zone']}</td>
+        <td>${r['Weather']} / ${r['Ground Condition']} / ${r['Shift']}</td>
         <td>${r['Engine Hours']}</td>
         <td>${r['Fuel Used (L)']}</td>
         <td>${r['Load Cycles']}</td>
@@ -262,7 +270,7 @@ function render(rows) {
         <td><span class="pill ${r['Seatbelt Status'].toLowerCase()}">${r['Seatbelt Status']}</span></td>
         <td><span class="pill ${r['Proximity Alert'] === 'Yes' ? 'yes' : 'no'}">${r['Proximity Alert']}</span></td>
         <td><span class="pill ${r['Safety Alert Triggered'].toLowerCase()}">${r['Safety Alert Triggered']}</span></td>
-        <td><span class="pill ${r['Incident Logged'] === 'Yes' ? 'yes' : 'no'}">${r['Incident Logged']}</span></td>
+        <td><span class="pill ${r['Anomaly Label'] === 'None' ? 'no' : 'yes'}">${r['Anomaly Label']}</span></td>
       </tr>
     `).join('');
   }
@@ -270,20 +278,21 @@ function render(rows) {
   document.getElementById('alertFilter').addEventListener('change', renderTable);
   renderTable();
 
-  // Task time estimation table (heuristic: base 20min + cycles*2 + idling*0.3)
-  const byType = {};
+  // Task time estimation table: mean Actual Duration grouped by Task Type x Weather (a real target, not a guess)
+  const byTaskWeather = {};
   rows.forEach(r => {
-    const t = r['Machine Type'];
-    byType[t] = byType[t] || { cycles: [], idle: [] };
-    byType[t].cycles.push(Number(r['Load Cycles']));
-    byType[t].idle.push(Number(r['Idling Time (min)']));
+    const key = `${r['Task Type']}|${r['Weather']}`;
+    byTaskWeather[key] = byTaskWeather[key] || { scheduled: [], actual: [] };
+    byTaskWeather[key].scheduled.push(Number(r['Scheduled Duration (min)']));
+    byTaskWeather[key].actual.push(Number(r['Actual Duration (min)']));
   });
-  document.getElementById('estimateBody').innerHTML = Object.entries(byType).map(([type, d]) => {
-    const avgCycles = d.cycles.reduce((a,b)=>a+b,0) / d.cycles.length;
-    const avgIdle = d.idle.reduce((a,b)=>a+b,0) / d.idle.length;
-    const est = Math.round(20 + avgCycles * 2 + avgIdle * 0.3);
-    return `<tr><td>${type}</td><td>${avgCycles.toFixed(1)}</td><td>${avgIdle.toFixed(1)}</td><td>${est} min</td></tr>`;
-  }).join('');
+  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  document.getElementById('estimateBody').innerHTML = Object.entries(byTaskWeather)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, d]) => {
+      const [taskType, weather] = key.split('|');
+      return `<tr><td>${taskType}</td><td>${weather}</td><td>${avg(d.scheduled).toFixed(0)}</td><td>${avg(d.actual).toFixed(0)}</td><td>${d.actual.length}</td></tr>`;
+    }).join('');
 
   // Charts
   const byDate = {};

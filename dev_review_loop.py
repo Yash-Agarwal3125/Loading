@@ -42,6 +42,12 @@ def check_dataset():
         findings.append(("MUST", "No proximity-hazard field in the dataset -- brief lists proximity hazards as a required safety feature."))
     if not any("incident" in c.lower() for c in cols):
         findings.append(("MUST", "No incident-logging field in the dataset -- brief lists incident logging as a required safety feature."))
+    if not any("duration" in c.lower() for c in cols):
+        findings.append(("MUST", "No task-duration field in the dataset -- brief requires task time estimation, which needs a real target to predict."))
+    if not any(c in ("Weather", "Ground Condition", "Shift") for c in cols):
+        findings.append(("MUST", "No working-conditions fields (weather/ground/shift) -- brief says working conditions must be considered."))
+    if not any("anomaly" in c.lower() for c in cols):
+        findings.append(("MUST", "No Anomaly Label field -- brief requires identifying unusual behavior, which needs a ground-truth label to check against."))
     return findings
 
 
